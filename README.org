@@ -1,0 +1,113 @@
+* lsp-projects -- project awareness for emacs lsp-mode
+
+This package is a collection of ~lsp-mode~ workflows involving knowledge of the
+project (meaning lsp workspace root or project.el/projectile current project).
+Currently providing the following pretty unrelated features:
+
+- Automatic usage of project-local language server installs (ex. pylsp in venv)
+- Automatic LSP opening of all source files in a project (ex. for project-wide
+  diagnostics from servers that don't yet support ~workspace/diagnostic~)
+
+It currently only supports these features for pylsp.
+
+** Rationale
+
+This package provides the above utilities via a lightweight and extensible
+~lsp-mode~ hook and advice layer. It does not interfere with lsp-mode behavior
+pertaining to sessions, workspaces, and multi-root.
+
+*** Project-local pylsp venv
+
+Local language server use is done through a system of project-aware "client
+modifiers" which are applied to clients at every ~lsp--filter-clients~ call. A
+client modifier is a function that takes a client and returns a modified copy.
+Each client id (ex. "pylsp") gets a list of client modifiers through a custom
+variable, and these are applied in sequence, so that ~lsp--filter-clients~
+provides modified clients.
+
+The client modifier ~lsp-projects-pylsp-client-modifier-venv~ detects the
+current project and replaces the pylsp client ~:new-connection~ field with
+something pointing to a pylsp installation in a venv under the current project
+(where the precise location can also be customized).
+
+For pylsp, the difference between this and existing pyvenv or direnv/envrc
+methods [fn:1] is that this allows separate venvs for development and lsp, which
+could be useful when collaborating. Also, instead of needing to manipulate the
+pylsp venv path around ~lsp-mode~, it now be calculated as a part of the pylsp
+~lsp-client~ itself.
+
+*** Pylsp project auto-opening
+
+Pylsp does not [fn:2] yet support ~workspace/diagnostic~, which provides
+workspace-wide diagnostics. [fn:3] There have been efforts to simulate this by
+manually opening all files [fn:4], which is what we do here. See the quickstart
+for more.
+
+** Installation
+
+#+begin_src elisp
+(use-package lsp-projects
+  :load-path path/to/lsp-projects
+  :ensure t
+  :config
+  (lsp-projects-mode))
+#+end_src
+
+** Usage
+
+Any configuration can be put in a ~.dir-local.el~ for a project-local scope.
+
+*** Quickstart: project-local pylsp venv
+
+First, specify a client modifier for clients with id ~pylsp~. In particular, use
+the provided ~lsp-projects-pylsp-client-modifier-use-venv~ modifier to swap out
+the client ~:new-connection~ for one that respects a venv near the project root:
+
+#+begin_src elisp
+(setq lsp-projects-pylsp-client-modifiers
+      '(lsp-projects-pylsp-client-modifier-use-venv))
+#+end_src
+
+Second, the behavior of the above client modifier is configured by a custom
+specifying the path (root-relative or absolute) of the ~pylsp~ venv (the default
+is ~.venv-lsp~):
+
+#+begin_src elisp
+(setq lsp-projects-pylsp-client-modifier-use-venv-path ".venv")
+#+end_src
+
+*** Quickstart: pylsp project auto-opening
+
+First, enable file auto-opening for clients with id ~pylsp~:
+
+#+begin_src elisp
+(setq lsp-projects-pylsp-auto-open t)
+#+end_src
+
+Second, specify the function used to find files beneath project root if the
+sensible default behavior is not desired. The default behavior is the function
+~lsp-projects--pylsp-find-auto-open-files-sensible~, which finds all project
+files which are also ~python-mode~ files according to ~auto-mode-alist~.
+
+#+begin_src elisp
+(setq lsp-projects-pylsp-find-auto-open-files ...)
+#+end_src
+
+** Todo
+
+- Do projectile integration
+
+** Footnotes
+
+[fn:1] Thanks to:
+
+- https://slinkp.com/python-emacs-lsp-20231229.html
+- https://journal.spencerwnelson.com/entries/emacs_virtualenv_lsp.html
+- https://ddavis.io/blog/emacs-python-lsp/
+- https://www.mattduck.com/lsp-python-getting-started.html
+
+[fn:2] https://github.com/python-lsp/python-lsp-server/discussions/280
+
+[fn:3] https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_diagnostic
+
+[fn:4] https://artem.rocks/posts/workspace_diagnostics_nvim
