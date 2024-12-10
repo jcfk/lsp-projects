@@ -45,10 +45,12 @@ for more.
 
 ** Installation
 
+Clone the repo and then:
+
 #+begin_src elisp
 (use-package lsp-projects
+  :after lsp-mode
   :load-path path/to/lsp-projects
-  :ensure t
   :config
   (lsp-projects-mode))
 #+end_src
